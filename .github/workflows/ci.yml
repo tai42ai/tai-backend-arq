@@ -76,6 +76,6 @@ jobs:
         run: |
           gh api 'repos/${{ github.repository_owner }}/tai-e2e/dispatches' \
             -f 'event_type=ecosystem-push' \
-            -f 'client_payload[repo]=tai42-backend-arq' \
+            -f 'client_payload[repo]=tai-backend-arq' \
             -f 'client_payload[ref]=${{ github.sha }}' \
             -f 'client_payload[legs]=arq'
