@@ -32,7 +32,7 @@ dependencies = [
     # The broker SDK: worker runtime, ArqRedis pool, Job status/result API.
     "arq~=0.27.0",
     # Crontab iteration for the Redis-hash scheduler.
-    "croniter~=6.2.2",
+    "croniter~=6.2.4",
     # Job/schedule payload (de)serialization.
     "orjson~=3.11.8",
     # Presents the extension branch tools with real composed signatures.
