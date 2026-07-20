@@ -13,8 +13,8 @@ import pytest
 from arq.jobs import JobDef, JobResult, JobStatus, SerializationError
 from arq.utils import timestamp_ms
 
-from tai_backend_arq import scheduler, tools
-from tai_backend_arq.settings import TaskFailedError
+from tai42_backend_arq import scheduler, tools
+from tai42_backend_arq.settings import TaskFailedError
 from tests.conftest import DeleteOnLockRedis
 
 

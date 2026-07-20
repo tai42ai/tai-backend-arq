@@ -33,7 +33,7 @@ from typing import Any
 import orjson
 from pydantic_core import to_jsonable_python
 from pydantic_settings import SettingsConfigDict
-from tai_kit.settings import TaiBaseSettings, settings_cache
+from tai42_kit.settings import TaiBaseSettings, settings_cache
 
 # Marker key of the tagged in-place description a JSON-unserializable value
 # inside a result payload serializes to.

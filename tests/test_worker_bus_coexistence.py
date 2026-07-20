@@ -7,7 +7,7 @@ on. This backend adds no control-plane surface of its own, so the only
 reconciliation concern is that a job monopolizing the loop must not permanently
 starve the subscription's pub/sub read (fleet ops must still land).
 
-An execution backend never imports ``tai_skeleton``, so the app-owned
+An execution backend never imports ``tai42_skeleton``, so the app-owned
 subscription is modeled here over this repo's own pub/sub broker fixture
 (``FakePubSubRedis``): a subscription consumer and an arq-style job run as peers
 on one loop. The two observables that bound the reconciliation:

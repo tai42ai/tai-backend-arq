@@ -1,8 +1,8 @@
-"""Bind a recording stub app to the ``tai_app`` handle before the plugin is
+"""Bind a recording stub app to the ``tai42_app`` handle before the plugin is
 imported, and provide the shared in-memory Redis fakes.
 
 The plugin registers its backend, tools, extensions, and lifecycle hooks
-through ``tai_app`` at import time, mirroring how the host binds the app and
+through ``tai42_app`` at import time, mirroring how the host binds the app and
 then imports the package named by the manifest's ``backend_module``. Binding
 the stub here — at collection time, before any test module imports the plugin —
 captures those registrations so tests can assert on them and call the
@@ -20,8 +20,8 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
-from tai_contract.app import tai_app
-from tai_contract.extensions import ExtensionKind
+from tai42_contract.app import tai42_app
+from tai42_contract.extensions import ExtensionKind
 
 # -- The recording stub app ------------------------------------------------------
 
@@ -138,10 +138,10 @@ class StubApp:
 
 
 _stub_app = StubApp()
-tai_app.bind(_stub_app)
+tai42_app.bind(_stub_app)
 
 # Imported AFTER the bind so every import-time registration lands in the stub.
-import tai_backend_arq  # noqa: E402,F401
+import tai42_backend_arq  # noqa: E402,F401
 
 
 @pytest.fixture
@@ -320,7 +320,7 @@ def hub() -> FakePubSubRedis:
 @pytest.fixture
 def bind_pool(monkeypatch: pytest.MonkeyPatch) -> Callable[[Any], None]:
     """Route ``RedisPoolManager.get`` (everywhere it is imported) to a fake."""
-    from tai_backend_arq.pool import RedisPoolManager
+    from tai42_backend_arq.pool import RedisPoolManager
 
     def bind(fake: Any) -> None:
         monkeypatch.setattr(RedisPoolManager, "get", AsyncMock(return_value=fake))

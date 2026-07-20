@@ -1,9 +1,9 @@
 """Callback glue — chain a follow-up tool after a backend task runs.
 
 :class:`CallbackSchema` completes the contract field shape
-(:class:`tai_contract.backend.CallbackSchema`) with ``rendered_condition`` /
+(:class:`tai42_contract.backend.CallbackSchema`) with ``rendered_condition`` /
 ``rendered_expr`` methods that render the condition/expression fields through
-the host's resource manager (``tai_app.storage.resource_manager``).
+the host's resource manager (``tai42_app.storage.resource_manager``).
 
 ``callback_execution`` evaluates the rendered condition over a task result and,
 when it passes (an empty condition always passes), renders the expression and
@@ -18,11 +18,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from tai_contract.app import tai_app
-from tai_contract.backend import CallbackSchema as CallbackFields
-from tai_kit.utils.data.jq_util import get_compiled_jq
+from tai42_contract.app import tai42_app
+from tai42_contract.backend import CallbackSchema as CallbackFields
+from tai42_kit.utils.data.jq_util import get_compiled_jq
 
-from tai_backend_arq.signatures import exclude_fastmcp_ctx_from_kwargs
+from tai42_backend_arq.signatures import exclude_fastmcp_ctx_from_kwargs
 
 
 class CallbackSchema(CallbackFields):
@@ -34,14 +34,14 @@ class CallbackSchema(CallbackFields):
     """
 
     async def rendered_condition(self) -> str:
-        return await tai_app.storage.resource_manager.render_by_id_or_content(
+        return await tai42_app.storage.resource_manager.render_by_id_or_content(
             content=self.condition,
             template_id=self.condition_id,
             kwargs=self.condition_kwargs,
         )
 
     async def rendered_expr(self) -> str:
-        return await tai_app.storage.resource_manager.render_by_id_or_content(
+        return await tai42_app.storage.resource_manager.render_by_id_or_content(
             content=self.expr,
             template_id=self.expr_id,
             kwargs=self.expr_kwargs,
@@ -72,5 +72,5 @@ async def callback_execution(result: Any, callback: CallbackSchema) -> Any:
     expr_output = get_compiled_jq(expr).input(result).first() if expr else {}
 
     if callback.tool:
-        return await tai_app.tools.run_tool(callback.tool, expr_output)
+        return await tai42_app.tools.run_tool(callback.tool, expr_output)
     return expr_output

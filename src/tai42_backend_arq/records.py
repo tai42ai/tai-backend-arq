@@ -3,7 +3,7 @@
 :class:`ScheduleRecord` is the JSON-safe document ``backend_export_schedules``
 emits and ``backend_import_schedules`` consumes — only the durable definition of
 a schedule, never runtime state. The helpers convert between the canonical
-normalized schedule dict (see :func:`tai_kit.utils.runtime.schedule_util.normalize_schedule`),
+normalized schedule dict (see :func:`tai42_kit.utils.runtime.schedule_util.normalize_schedule`),
 the compact ``cron_or_interval`` value stored in the schedule hash (an interval
 in seconds or a 5-field crontab string), and the next-run timing derived from it.
 """

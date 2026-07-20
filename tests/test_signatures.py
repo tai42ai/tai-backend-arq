@@ -7,7 +7,7 @@ from typing import Any
 
 from fastmcp import Context
 
-from tai_backend_arq.signatures import add_signature_params, exclude_fastmcp_ctx_from_kwargs
+from tai42_backend_arq.signatures import add_signature_params, exclude_fastmcp_ctx_from_kwargs
 
 
 async def _tool_with_ctx(text: str, ctx: Context, **extra: Any) -> str:

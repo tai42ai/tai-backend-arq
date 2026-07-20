@@ -1,5 +1,5 @@
 name: Bug report
-description: Report a defect in tai-backend-arq (the arq execution backend)
+description: Report a defect in tai42-backend-arq (the arq execution backend)
 labels: ["bug"]
 body:
   - type: textarea
@@ -20,7 +20,7 @@ body:
   - type: input
     id: version
     attributes:
-      label: tai-backend-arq version
+      label: tai42-backend-arq version
       placeholder: "0.1.0"
     validations:
       required: true
@@ -28,7 +28,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: Python version, the host tai-skeleton version, the arq and redis versions, and the Redis URL scheme.
+      description: Python version, the host tai42-skeleton version, the arq and redis versions, and the Redis URL scheme.
       placeholder: "Python 3.13.x, macOS 15"
     validations:
       required: true

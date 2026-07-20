@@ -11,8 +11,8 @@ import orjson
 import pytest
 from arq.jobs import JobStatus
 
-from tai_backend_arq import scheduler
-from tai_backend_arq.settings import TaskFailedError
+from tai42_backend_arq import scheduler
+from tai42_backend_arq.settings import TaskFailedError
 from tests.conftest import DeleteOnLockRedis
 
 
@@ -139,7 +139,7 @@ async def test_request_job_abort_confirmed() -> None:
 
 async def test_request_job_abort_pending_confirmation_returns_false(caplog) -> None:
     job = _job_type(**{"abort:j1": TimeoutError()})("j1")
-    with caplog.at_level("INFO", logger="tai_backend_arq.scheduler"):
+    with caplog.at_level("INFO", logger="tai42_backend_arq.scheduler"):
         assert await scheduler.request_job_abort(job) is False
     assert any("abort of job j1 requested" in record.getMessage() for record in caplog.records)
 
@@ -190,7 +190,7 @@ async def test_request_job_abort_unconfirmed_false_with_live_job_stays_false(cap
     no finished outcome to translate: the request is recorded but unconfirmed,
     reported exactly like the elapsed-wait path."""
     job = _job_type(**{"status:j1": JobStatus.in_progress, "abort:j1": False})("j1")
-    with caplog.at_level("INFO", logger="tai_backend_arq.scheduler"):
+    with caplog.at_level("INFO", logger="tai42_backend_arq.scheduler"):
         assert await scheduler.request_job_abort(job) is False
     assert any("abort of job j1 requested" in record.getMessage() for record in caplog.records)
 
@@ -541,7 +541,7 @@ async def test_watchdog_error_on_one_schedule_does_not_stop_others(fake_redis, m
     broken = _seed(fake_redis, "a_broken", job_id=b"boom")
     lost = _seed(fake_redis, "z_lost", job_id=b"lost")
 
-    with caplog.at_level("ERROR", logger="tai_backend_arq.scheduler"):
+    with caplog.at_level("ERROR", logger="tai42_backend_arq.scheduler"):
         await scheduler.recover_stalled_schedules({"redis": fake_redis})
 
     assert any("Watchdog error checking schedule" in record.message for record in caplog.records)

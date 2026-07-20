@@ -1,6 +1,6 @@
 """Worker functions and the enqueue helper.
 
-``tool_execution`` runs one tool by name through ``tai_app.tools.run_tool`` and,
+``tool_execution`` runs one tool by name through ``tai42_app.tools.run_tool`` and,
 when a callback schema rode along, chains a ``callback_job`` that waits for this
 job's result and executes the callback over it. ``enqueue_task`` maps the
 backend task options (``eta`` / ``countdown`` / ``expires`` /
@@ -16,11 +16,11 @@ from typing import Any
 
 from arq.connections import ArqRedis
 from arq.jobs import Job, JobStatus
-from tai_contract.app import tai_app
+from tai42_contract.app import tai42_app
 
-from tai_backend_arq.callback import CallbackSchema, callback_execution
-from tai_backend_arq.scheduler import wait_job_result
-from tai_backend_arq.settings import arq_settings, job_deserializer
+from tai42_backend_arq.callback import CallbackSchema, callback_execution
+from tai42_backend_arq.scheduler import wait_job_result
+from tai42_backend_arq.settings import arq_settings, job_deserializer
 
 # Task options every backend extension appends to its branch tool's signature.
 # ``enqueue_task`` maps them onto arq's defer options; ``callback_kwargs`` stays
@@ -95,7 +95,7 @@ async def tool_execution(ctx: dict[str, Any], *args: Any, **kwargs: Any) -> Any:
 
     try:
         tool_name = kwargs.pop(arq_settings().tool_name_arg)
-        return await tai_app.tools.run_tool(tool_name, kwargs)
+        return await tai42_app.tools.run_tool(tool_name, kwargs)
     finally:
         if callback:
             await ctx["redis"].enqueue_job("callback_job", ctx["job_id"], callback)

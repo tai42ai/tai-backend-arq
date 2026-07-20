@@ -1,12 +1,12 @@
-# Contributing to tai-backend-arq
+# Contributing to tai42-backend-arq
 
-`tai-backend-arq` is an arq **execution backend** for the TAI ecosystem: it
-implements `tai_contract.backend.Backend` (the worker runtime, `launch`) and
+`tai42-backend-arq` is an arq **execution backend** for the TAI ecosystem: it
+implements `tai42_contract.backend.Backend` (the worker runtime, `launch`) and
 layers the platform's background-execution features over arq — queued and awaited
 tool runs, recurring schedules (interval or crontab) with export/import backup,
 and result-chaining callbacks. The hard rule (the plugin rule): **it depends on
-`tai-contract` + `tai-kit` only and never imports the skeleton.** Importing
-`tai_backend_arq` registers everything through the global `tai_app` handle as a
+`tai42-contract` + `tai42-kit` only and never imports the skeleton.** Importing
+`tai42_backend_arq` registers everything through the global `tai42_app` handle as a
 side-effect (the `ArqBackend`, the `backend_*` tools, and the `sync_task` /
 `async_task` / `schedule_task` extensions), and a manifest's `backend_module`
 names the package. Fleet propagation of config changes is not this backend's
@@ -18,7 +18,7 @@ worker bus, exactly like a serving HTTP worker.
 - **No skeleton import — ever.** The package is contract-facing; the ban is
   enforced by ruff (`flake8-tidy-imports`), so a stray import fails lint:
   ```bash
-  grep -rn "tai_skeleton" src/   # must be empty
+  grep -rn "tai42_skeleton" src/   # must be empty
   ```
 - **No control plane in the backend.** Fleet ops arrive over the app's worker
   bus; this backend never fans control operations out itself.

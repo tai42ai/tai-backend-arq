@@ -12,7 +12,7 @@ import pytest
 from arq.jobs import JobStatus
 from pydantic import ValidationError
 
-from tai_backend_arq import scheduler, tools
+from tai42_backend_arq import scheduler, tools
 
 
 class _FakeJob:

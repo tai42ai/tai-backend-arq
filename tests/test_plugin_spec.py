@@ -7,11 +7,11 @@ import tomllib
 from pathlib import Path
 
 import yaml
-from tai_contract.plugins import PluginSpec
+from tai42_contract.plugins import PluginSpec
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _ROOT_SPEC = _REPO_ROOT / "tai-plugin.yml"
-_PACKAGED_SPEC = _REPO_ROOT / "src" / "tai_backend_arq" / "tai-plugin.yml"
+_PACKAGED_SPEC = _REPO_ROOT / "src" / "tai42_backend_arq" / "tai-plugin.yml"
 
 
 def _spec() -> PluginSpec:
@@ -45,8 +45,8 @@ def test_pyproject_ships_the_spec_as_package_data():
         "package-data"
     ]
     owners = [package for package, files in package_data.items() if "tai-plugin.yml" in files]
-    assert owners == ["tai_backend_arq"], (
-        "exactly the 'tai_backend_arq' package must ship 'tai-plugin.yml' via "
+    assert owners == ["tai42_backend_arq"], (
+        "exactly the 'tai42_backend_arq' package must ship 'tai-plugin.yml' via "
         f"[tool.setuptools.package-data]; found owners {owners!r} — a key drifting to a "
         "wrong/non-existent package would leave the wheel without the spec"
     )

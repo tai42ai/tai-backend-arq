@@ -10,10 +10,10 @@ import click
 import pytest
 from click.testing import CliRunner
 
-from tai_backend_arq import worker
-from tai_backend_arq.backend import ArqBackend
-from tai_backend_arq.pool import RedisPoolManager
-from tai_backend_arq.scheduler import recover_stalled_schedules
+from tai42_backend_arq import worker
+from tai42_backend_arq.backend import ArqBackend
+from tai42_backend_arq.pool import RedisPoolManager
+from tai42_backend_arq.scheduler import recover_stalled_schedules
 
 
 class _FakeWorker:
@@ -72,7 +72,7 @@ async def test_start_arq_worker_outer_cancellation_shuts_down_and_propagates(wor
     task = asyncio.create_task(worker.start_arq_worker(None, False, 3600, "arq:queue", 10, 300, 0.5, 5, 60))
     await asyncio.sleep(0.01)
 
-    with caplog.at_level("INFO", logger="tai_backend_arq.worker"):
+    with caplog.at_level("INFO", logger="tai42_backend_arq.worker"):
         task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task

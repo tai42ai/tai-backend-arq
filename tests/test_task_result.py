@@ -9,8 +9,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from arq.jobs import JobStatus, ResultNotFound
 
-from tai_backend_arq import tools
-from tai_backend_arq.settings import TaskFailedError
+from tai42_backend_arq import tools
+from tai42_backend_arq.settings import TaskFailedError
 
 
 class _FakeJob:

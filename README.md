@@ -1,10 +1,10 @@
-# tai-backend-arq
+# tai42-backend-arq
 
 [![CI](https://github.com/tai42ai/tai-backend-arq/actions/workflows/ci.yml/badge.svg)](https://github.com/tai42ai/tai-backend-arq/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 An [arq](https://arq-docs.helpmanual.io/) execution backend for the TAI
-ecosystem. It implements the `tai_contract.backend.Backend` surface — the worker
+ecosystem. It implements the `tai42_contract.backend.Backend` surface — the worker
 runtime (`launch`) — and layers the platform's background-execution features
 over arq: queued and awaited tool runs, recurring schedules (interval or
 crontab) with export/import backup, and result-chaining callbacks. Fleet
@@ -28,8 +28,8 @@ and the documentation site covers the platform-level story:
 - Build a backend (author guide): https://tai42.ai/guides/authors/backend
 - Ecosystem catalog: https://tai42.ai/reference/catalog
 
-Its only tai-* dependencies are `tai-contract` (the `Backend` ABC,
-`CallbackSchema`, `Manifest`, and the `tai_app` handle) and `tai-kit[jq]`
+Its only tai-* dependencies are `tai42-contract` (the `Backend` ABC,
+`CallbackSchema`, `Manifest`, and the `tai42_app` handle) and `tai42-kit[jq]`
 (settings base, schedule normalization, signature helpers, jq). Beyond those it
 depends on the broker stack — `arq`, `croniter`, `orjson`, `makefun`, `click` —
 plus `fastmcp` (the platform's tool substrate) and `pydantic` /
@@ -44,25 +44,25 @@ editable dependency of the environment that runs the server:
 ```bash
 git clone https://github.com/tai42ai/tai-backend-arq
 cd tai-skeleton   # or your own app checkout
-uv add --editable ../tai-backend-arq   # once published: uv add tai-backend-arq
+uv add --editable ../tai-backend-arq   # once published: uv add tai42-backend-arq
 ```
 
 ## Discovery
 
 The host discovers this backend by **importing its package** — importing
-`tai_backend_arq` registers everything through the global `tai_app` handle as
+`tai42_backend_arq` registers everything through the global `tai42_app` handle as
 a side-effect (there is no entry-point): the `ArqBackend`
-(`@tai_app.backends.register_backend`), the `backend_*` tool surface, the
+(`@tai42_app.backends.register_backend`), the `backend_*` tool surface, the
 `sync_task` / `schedule_task` / `async_task` BACKEND-kind tool extensions, and
 a shutdown hook closing the shared ArqRedis pool. Name the package in your
 manifest's `backend_module` field:
 
 ```yaml
-backend_module: tai_backend_arq
+backend_module: tai42_backend_arq
 ```
 
 Start a worker through the host's backend CLI; everything after `worker` is
-this backend's own option surface (see `tai_backend_arq.worker.main`):
+this backend's own option surface (see `tai42_backend_arq.worker.main`):
 
 ```bash
 tai backend worker --max-jobs 10 --job-timeout 300

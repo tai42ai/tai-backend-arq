@@ -19,24 +19,24 @@ import orjson
 from arq.constants import in_progress_key_prefix
 from arq.jobs import Job, JobStatus, ResultNotFound
 from arq.utils import timestamp_ms
-from tai_contract.app import tai_app
-from tai_kit.utils.runtime.schedule_util import normalize_schedule
+from tai42_contract.app import tai42_app
+from tai42_kit.utils.runtime.schedule_util import normalize_schedule
 
-from tai_backend_arq.pool import RedisPoolManager
-from tai_backend_arq.records import (
+from tai42_backend_arq.pool import RedisPoolManager
+from tai42_backend_arq.records import (
     ScheduleRecord,
     derive_cron_or_interval,
     next_run_after,
     parse_cron_or_interval,
 )
-from tai_backend_arq.scheduler import (
+from tai42_backend_arq.scheduler import (
     abort_job,
     abort_schedule_task,
     safe_schedule_transition,
     schedule_lock,
     wait_job_result,
 )
-from tai_backend_arq.settings import TaskFailedError, arq_settings, job_deserializer
+from tai42_backend_arq.settings import TaskFailedError, arq_settings, job_deserializer
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +52,7 @@ def _failure_detail(result: Any) -> str:
     return repr(result)
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_task_status(task_id: str) -> str:
     """
     Return the current status of a given task ID.
@@ -63,7 +63,7 @@ async def backend_task_status(task_id: str) -> str:
     return status.value if status else "unknown"
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_task_result(task_id: str, timeout: float | None = None) -> Any:
     """
     Return the result of a completed task by ID.
@@ -98,7 +98,7 @@ async def backend_task_result(task_id: str, timeout: float | None = None) -> Any
         return f"No result found for task {task_id}"
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_cancel_task(task_id: str) -> str:
     """
     Cancel (abort) a running or queued task.
@@ -167,7 +167,7 @@ async def backend_cancel_task(task_id: str) -> str:
     return f"Task {task_id} abort requested but not confirmed"
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_active_tasks() -> dict[str, Any]:
     """
     Get all currently executing tasks (in-progress jobs).
@@ -192,7 +192,7 @@ async def backend_active_tasks() -> dict[str, Any]:
     return tasks
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_reserved_tasks() -> list[str]:
     """
     Get all reserved/queued tasks (due to run, not yet picked up).
@@ -209,7 +209,7 @@ async def backend_reserved_tasks() -> list[str]:
     ]
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_scheduled_tasks() -> dict[str, float]:
     """
     Get all scheduled/deferred tasks (future-dated queue entries).
@@ -226,7 +226,7 @@ async def backend_scheduled_tasks() -> dict[str, float]:
     }
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_list_failed_tasks() -> list[dict[str, Any]]:
     """
     Get the failed (including aborted) tasks whose results are still retained,
@@ -243,7 +243,7 @@ async def backend_list_failed_tasks() -> list[dict[str, Any]]:
     ]
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_list_schedules() -> list[dict[str, Any]]:
     """
     List all custom schedules.
@@ -283,7 +283,7 @@ async def backend_list_schedules() -> list[dict[str, Any]]:
     return schedules
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_export_schedules() -> list[dict[str, Any]]:
     """
     Export every custom schedule as a list of portable, JSON-serializable records.
@@ -324,7 +324,7 @@ async def backend_export_schedules() -> list[dict[str, Any]]:
     return [record.model_dump() for record in records]
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_import_schedules(schedules: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Import schedules previously produced by ``backend_export_schedules``.
@@ -392,7 +392,7 @@ async def backend_import_schedules(schedules: list[dict[str, Any]]) -> dict[str,
     return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_get_schedule(name: str) -> dict[str, Any]:
     """
     Get details of a custom schedule.
@@ -413,7 +413,7 @@ async def backend_get_schedule(name: str) -> dict[str, Any]:
     }
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_delete_schedule(name: str) -> dict[str, Any]:
     """
     Delete a custom schedule.
@@ -435,7 +435,7 @@ async def backend_delete_schedule(name: str) -> dict[str, Any]:
     return {"status": "deleted", "name": name}
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_enable_schedule(name: str) -> dict[str, Any]:
     """
     Enable a custom schedule.
@@ -454,7 +454,7 @@ async def backend_enable_schedule(name: str) -> dict[str, Any]:
     return {"status": "enabled"}
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_disable_schedule(name: str) -> dict[str, Any]:
     """
     Disable a custom schedule.
@@ -473,7 +473,7 @@ async def backend_disable_schedule(name: str) -> dict[str, Any]:
     return {"status": "disabled"}
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_run_schedule_now(name: str) -> dict[str, Any]:
     """
     Force a schedule to run ASAP.
@@ -495,7 +495,7 @@ async def backend_run_schedule_now(name: str) -> dict[str, Any]:
     return {"status": "queued"}
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_schedule_exists(name: str) -> bool:
     """
     Return True if a custom schedule entry exists.
@@ -506,7 +506,7 @@ async def backend_schedule_exists(name: str) -> bool:
     return bool(await arq_redis.exists(key))
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_update_schedule(
     name: str,
     new_schedule: int | float | str | dict[str, Any] | None = None,
@@ -604,7 +604,7 @@ async def backend_update_schedule(
     }
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_registered_tasks() -> list[str]:
     """
     List the task functions registered with the worker.
@@ -612,7 +612,7 @@ async def backend_registered_tasks() -> list[str]:
     raise NotImplementedError("backend 'arq' does not support backend_registered_tasks")
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_worker_stats() -> dict[str, Any]:
     """
     Return runtime statistics for the worker.
@@ -620,7 +620,7 @@ async def backend_worker_stats() -> dict[str, Any]:
     raise NotImplementedError("backend 'arq' does not support backend_worker_stats")
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_worker_queues() -> list[str]:
     """
     List the queues the worker consumes from.
@@ -628,7 +628,7 @@ async def backend_worker_queues() -> list[str]:
     raise NotImplementedError("backend 'arq' does not support backend_worker_queues")
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_ping_worker() -> dict[str, Any]:
     """
     Ping the worker and return its liveness response.
@@ -636,7 +636,7 @@ async def backend_ping_worker() -> dict[str, Any]:
     raise NotImplementedError("backend 'arq' does not support backend_ping_worker")
 
 
-@tai_app.tools.tool
+@tai42_app.tools.tool
 async def backend_list_active_workers() -> list[str]:
     """
     List the workers currently active.

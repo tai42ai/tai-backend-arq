@@ -1,4 +1,4 @@
-"""The arq :class:`~tai_contract.backend.Backend` implementation.
+"""The arq :class:`~tai42_contract.backend.Backend` implementation.
 
 ``launch`` starts the arq worker runtime for a ``worker`` subcommand, parsing
 its option surface through the worker CLI. Fleet propagation of config changes
@@ -12,8 +12,8 @@ from __future__ import annotations
 import sys
 from collections.abc import Sequence
 
-from tai_contract.app import tai_app
-from tai_contract.backend import Backend
+from tai42_contract.app import tai42_app
+from tai42_contract.backend import Backend
 
 
 class ArqBackend(Backend):
@@ -30,7 +30,7 @@ class ArqBackend(Backend):
             print(f"Unknown ARQ command: {subcmd}")
             sys.exit(1)
 
-        from tai_backend_arq import worker
+        from tai42_backend_arq import worker
 
         # Parse strictly: an unknown or malformed option aborts the launch
         # loudly instead of being silently dropped.
@@ -40,4 +40,4 @@ class ArqBackend(Backend):
 
 # Applied as a plain call (not decorator syntax) so the ``ArqBackend`` symbol
 # keeps its concrete class type for callers and the type checker.
-tai_app.backends.register_backend(ArqBackend)
+tai42_app.backends.register_backend(ArqBackend)

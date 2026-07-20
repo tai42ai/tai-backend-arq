@@ -6,10 +6,10 @@ from __future__ import annotations
 import inspect
 
 import pytest
-from tai_contract.extensions import ExtensionKind
+from tai42_contract.extensions import ExtensionKind
 
-from tai_backend_arq import extensions, lifecycle, tools
-from tai_backend_arq.backend import ArqBackend
+from tai42_backend_arq import extensions, lifecycle, tools
+from tai42_backend_arq.backend import ArqBackend
 
 CANONICAL_TOOLS = {
     # Task / worker
@@ -98,7 +98,7 @@ def test_shutdown_hook_registered(stub_app) -> None:
 async def test_shutdown_hook_closes_pool(monkeypatch) -> None:
     from unittest.mock import AsyncMock
 
-    from tai_backend_arq.pool import RedisPoolManager
+    from tai42_backend_arq.pool import RedisPoolManager
 
     close = AsyncMock()
     monkeypatch.setattr(RedisPoolManager, "close", close)

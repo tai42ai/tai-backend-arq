@@ -9,10 +9,10 @@ from unittest.mock import AsyncMock
 import pytest
 from arq.jobs import JobStatus
 
-from tai_backend_arq import callback as callback_module
-from tai_backend_arq import tasks
-from tai_backend_arq.callback import CallbackSchema, callback_execution, prepare_backend_kwargs
-from tai_backend_arq.settings import ArqSettings
+from tai42_backend_arq import callback as callback_module
+from tai42_backend_arq import tasks
+from tai42_backend_arq.callback import CallbackSchema, callback_execution, prepare_backend_kwargs
+from tai42_backend_arq.settings import ArqSettings
 
 
 class _Ctx:

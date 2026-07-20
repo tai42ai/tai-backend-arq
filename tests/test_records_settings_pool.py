@@ -12,10 +12,10 @@ import pytest
 from arq.jobs import DeserializationError, SerializationError, deserialize_result, serialize_job, serialize_result
 from pydantic import BaseModel, ValidationError
 
-from tai_backend_arq import records
-from tai_backend_arq.pool import RedisPoolManager
-from tai_backend_arq.records import ScheduleRecord
-from tai_backend_arq.settings import (
+from tai42_backend_arq import records
+from tai42_backend_arq.pool import RedisPoolManager
+from tai42_backend_arq.records import ScheduleRecord
+from tai42_backend_arq.settings import (
     UNSERIALIZABLE_KEY,
     ArqSettings,
     TaskFailedError,
@@ -233,7 +233,7 @@ async def test_pool_created_once_and_closed(monkeypatch) -> None:
         created.append(pool)
         return pool
 
-    monkeypatch.setattr("tai_backend_arq.pool.create_pool", fake_create_pool)
+    monkeypatch.setattr("tai42_backend_arq.pool.create_pool", fake_create_pool)
     monkeypatch.setattr(RedisPoolManager, "_pool", None)
 
     import asyncio

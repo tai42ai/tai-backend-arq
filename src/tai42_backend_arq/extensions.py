@@ -17,20 +17,20 @@ from typing import Any
 import orjson
 from makefun import create_function
 from pydantic_core import to_jsonable_python
-from tai_contract.app import tai_app
-from tai_contract.extensions import ExtensionKind
-from tai_kit.utils.runtime.schedule_util import normalize_schedule
+from tai42_contract.app import tai42_app
+from tai42_contract.extensions import ExtensionKind
+from tai42_kit.utils.runtime.schedule_util import normalize_schedule
 
-from tai_backend_arq.callback import prepare_backend_kwargs
-from tai_backend_arq.pool import RedisPoolManager
-from tai_backend_arq.records import derive_cron_or_interval, next_run_after
-from tai_backend_arq.scheduler import safe_schedule_transition, wait_job_result
-from tai_backend_arq.settings import arq_settings
-from tai_backend_arq.signatures import add_signature_params
-from tai_backend_arq.tasks import ARQ_SCHEDULE_OPTS, ARQ_TASK_OPTS, enqueue_task
+from tai42_backend_arq.callback import prepare_backend_kwargs
+from tai42_backend_arq.pool import RedisPoolManager
+from tai42_backend_arq.records import derive_cron_or_interval, next_run_after
+from tai42_backend_arq.scheduler import safe_schedule_transition, wait_job_result
+from tai42_backend_arq.settings import arq_settings
+from tai42_backend_arq.signatures import add_signature_params
+from tai42_backend_arq.tasks import ARQ_SCHEDULE_OPTS, ARQ_TASK_OPTS, enqueue_task
 
 
-@tai_app.extensions.extension(kind=ExtensionKind.BACKEND)
+@tai42_app.extensions.extension(kind=ExtensionKind.BACKEND)
 def sync_task(func: Callable[..., Any], name: str, description: str) -> Callable[..., Any]:
     """Branch ``func`` into a ``<name>_sync_task`` variant that queues the tool
     and waits (up to ``task_timeout``) for its result. A failed job re-raises
@@ -63,7 +63,7 @@ def sync_task(func: Callable[..., Any], name: str, description: str) -> Callable
     )
 
 
-@tai_app.extensions.extension(kind=ExtensionKind.BACKEND)
+@tai42_app.extensions.extension(kind=ExtensionKind.BACKEND)
 def schedule_task(func: Callable[..., Any], name: str, description: str) -> Callable[..., Any]:
     """Branch ``func`` into a ``<name>_schedule_task`` variant that registers a
     recurring schedule (interval or crontab) queueing the tool."""
@@ -116,7 +116,7 @@ def schedule_task(func: Callable[..., Any], name: str, description: str) -> Call
     )
 
 
-@tai_app.extensions.extension(kind=ExtensionKind.BACKEND)
+@tai42_app.extensions.extension(kind=ExtensionKind.BACKEND)
 def async_task(func: Callable[..., Any], name: str, description: str) -> Callable[..., Any]:
     """Branch ``func`` into a ``<name>_async_task`` variant that queues the tool
     and returns immediately with the task id."""

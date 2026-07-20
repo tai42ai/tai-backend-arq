@@ -17,10 +17,10 @@ import click
 from arq import Worker, func
 from arq.constants import default_queue_name
 
-from tai_backend_arq.pool import RedisPoolManager
-from tai_backend_arq.scheduler import recover_stalled_schedules, task_scheduler
-from tai_backend_arq.settings import arq_settings, job_deserializer, job_serializer
-from tai_backend_arq.tasks import callback_job, tool_execution
+from tai42_backend_arq.pool import RedisPoolManager
+from tai42_backend_arq.scheduler import recover_stalled_schedules, task_scheduler
+from tai42_backend_arq.settings import arq_settings, job_deserializer, job_serializer
+from tai42_backend_arq.tasks import callback_job, tool_execution
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ async def start_arq_worker(
         await worker.close()
 
 
-@click.command("tai-backend-arq")
+@click.command("tai42-backend-arq")
 @click.option("--redis-url", default=None, help="Redis URL (defaults to ARQ_REDIS_URL)")
 @click.option("--burst", is_flag=True, help="Run in burst mode")
 @click.option("--keep-result", type=int, default=3600, help="Keep result seconds")

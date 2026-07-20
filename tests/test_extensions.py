@@ -9,9 +9,9 @@ from typing import Any
 import orjson
 import pytest
 
-from tai_backend_arq import extensions, scheduler
-from tai_backend_arq.settings import TaskFailedError
-from tai_backend_arq.tasks import ARQ_SCHEDULE_OPTS, ARQ_TASK_OPTS
+from tai42_backend_arq import extensions, scheduler
+from tai42_backend_arq.settings import TaskFailedError
+from tai42_backend_arq.tasks import ARQ_SCHEDULE_OPTS, ARQ_TASK_OPTS
 
 
 async def sample_tool(text: str, count: int = 1) -> str:

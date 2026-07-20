@@ -3,7 +3,7 @@
 arq-native operations (enqueue, ``Job`` status/result, schedule hashes) share
 one lazily created pool configured with this backend's JSON job (de)serializers.
 ``close`` is wired to the app shutdown hook (see
-:mod:`tai_backend_arq.lifecycle`).
+:mod:`tai42_backend_arq.lifecycle`).
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import asyncio
 
 from arq import ArqRedis, create_pool
 
-from tai_backend_arq.settings import arq_settings, job_deserializer, job_serializer
+from tai42_backend_arq.settings import arq_settings, job_deserializer, job_serializer
 
 
 class RedisPoolManager:

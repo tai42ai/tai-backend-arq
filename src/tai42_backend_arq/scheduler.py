@@ -25,9 +25,9 @@ import orjson
 from arq.jobs import Job, JobStatus
 from croniter import croniter
 
-from tai_backend_arq.pool import RedisPoolManager
-from tai_backend_arq.records import parse_cron_or_interval
-from tai_backend_arq.settings import TaskFailedError, arq_settings, job_deserializer
+from tai42_backend_arq.pool import RedisPoolManager
+from tai42_backend_arq.records import parse_cron_or_interval
+from tai42_backend_arq.settings import TaskFailedError, arq_settings, job_deserializer
 
 logger = logging.getLogger(__name__)
 
