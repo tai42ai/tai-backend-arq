@@ -1,13 +1,9 @@
 """Signature helpers for the extension branch tools.
 
 ``add_signature_params`` extends a tool's signature with keyword-only option
-parameters (the backend task/schedule options the extension branches present)
-while keeping any trailing ``**kwargs`` last; with ``exclude_fastmcp_ctx`` the
-tool's FastMCP ``Context`` parameter is re-annotated to ``Any`` so the presented
-schema carries no request-scoped context type.
-``exclude_fastmcp_ctx_from_kwargs`` drops that context argument from a kwargs
-mapping before the call is dispatched to a worker (the context is
-request-scoped and cannot cross the queue).
+parameters, keeping any trailing ``**kwargs`` last.
+``exclude_fastmcp_ctx_from_kwargs`` drops the request-scoped FastMCP ``Context``
+argument, which cannot cross the queue.
 """
 
 from __future__ import annotations
@@ -57,9 +53,7 @@ def add_signature_params(
             for param in original_sig.parameters.values()
         ]
 
-    # A VAR_KEYWORD (**kwargs) parameter must stay last in a signature, so the
-    # added keyword-only params go before it — appending after would raise
-    # ValueError ("wrong parameter order").
+    # A VAR_KEYWORD (**kwargs) must stay last, so added params go before it.
     if params and params[-1].kind is inspect.Parameter.VAR_KEYWORD:
         *head, var_keyword = params
         new_params = [*head, *additional_params, var_keyword]

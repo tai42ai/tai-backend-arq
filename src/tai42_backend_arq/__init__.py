@@ -1,13 +1,10 @@
 """arq execution backend for the TAI ecosystem.
 
-Importing this package registers everything through the global ``tai42_app``
-handle as a side-effect (there is no entry-point): the :class:`ArqBackend`
-(``@tai42_app.backends.register_backend``), the ``backend_*`` tool surface, the
-``sync_task`` / ``schedule_task`` / ``async_task`` BACKEND-kind tool
-extensions, and the shutdown hook closing the shared ArqRedis pool. The host
-names this package in its manifest's ``backend_module`` field and imports it at
-startup. This package never imports the host skeleton — only ``tai42_contract``,
-``tai42_kit``, and the arq SDK.
+Importing this package registers everything on the global ``tai42_app`` handle as
+a side-effect: the :class:`ArqBackend`, the ``backend_*`` tool surface, the
+``sync_task`` / ``schedule_task`` / ``async_task`` BACKEND extensions, and the
+shutdown hook closing the shared ArqRedis pool. The host names this package in
+its manifest's ``backend_module`` field and imports it at startup.
 """
 
 from tai42_backend_arq import extensions, lifecycle, tools

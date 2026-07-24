@@ -17,15 +17,13 @@ from tai42_backend_arq.settings import arq_settings, job_deserializer, job_seria
 
 class RedisPoolManager:
     _pool: ArqRedis | None = None
-    # Created lazily on the running loop (an asyncio primitive binds to the
-    # loop it is first awaited on) and dropped together with the pool.
+    # Lazily created on the running loop it is first awaited on; dropped with the pool.
     _lock: asyncio.Lock | None = None
 
     @classmethod
     async def get(cls) -> ArqRedis:
         if cls._pool is None:
-            # Double-checked under the lock so concurrent first callers cannot
-            # race two pools into existence (one would leak unclosed).
+            # Double-checked under the lock so two pools can't race into existence.
             if cls._lock is None:
                 cls._lock = asyncio.Lock()
             async with cls._lock:

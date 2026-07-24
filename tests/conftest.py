@@ -1,12 +1,10 @@
 """Bind a recording stub app to the ``tai42_app`` handle before the plugin is
 imported, and provide the shared in-memory Redis fakes.
 
-The plugin registers its backend, tools, extensions, and lifecycle hooks
-through ``tai42_app`` at import time, mirroring how the host binds the app and
-then imports the package named by the manifest's ``backend_module``. Binding
-the stub here — at collection time, before any test module imports the plugin —
-captures those registrations so tests can assert on them and call the
-registered functions directly, without a live Redis-backed runtime.
+The plugin registers its backend, tools, extensions, and lifecycle hooks through
+``tai42_app`` at import time. Binding the stub here (at collection time, before
+any test imports the plugin) captures those registrations so tests can assert on
+them and call the registered functions directly.
 """
 
 from __future__ import annotations
@@ -262,9 +260,7 @@ class FakePubSub:
     async def subscribe(self, channel: str) -> None:
         self._hub.subscribers.setdefault(channel, set()).add(self)
         self._channels.add(channel)
-        # Real Redis sends a subscribe confirmation on the connection before any
-        # published message; mirror it so a consumer that reads its confirmation
-        # (to know the subscription is server-active) sees one.
+        # Mirror Redis's subscribe confirmation, sent before any published message.
         self._queue.put_nowait({"type": "subscribe", "channel": channel, "data": len(self._channels)})
 
     async def unsubscribe(self, channel: str) -> None:

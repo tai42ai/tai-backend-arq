@@ -1,16 +1,10 @@
 """Callback glue — chain a follow-up tool after a backend task runs.
 
-:class:`CallbackSchema` completes the contract field shape
-(:class:`tai42_contract.backend.CallbackSchema`) with ``rendered_condition`` /
-``rendered_expr`` methods that render the condition/expression fields through
-the host's resource manager (``tai42_app.storage.resource_manager``).
-
-``callback_execution`` evaluates the rendered condition over a task result and,
-when it passes (an empty condition always passes), renders the expression and
-optionally runs a follow-up tool. It returns the follow-up tool's result, the
-rendered expression output when no tool is set, or ``None`` when the condition
-fails. ``prepare_backend_kwargs`` strips the FastMCP context from a tool's
-kwargs and injects the tool name before a backend dispatch.
+:class:`CallbackSchema` completes the contract field shape with render methods
+that reach the host's resource manager. ``callback_execution`` gates a task
+result on the rendered condition, transforms it with the rendered expression,
+and optionally runs a follow-up tool. ``prepare_backend_kwargs`` strips the
+FastMCP context and injects the tool name before a backend dispatch.
 """
 
 from __future__ import annotations
@@ -26,12 +20,8 @@ from tai42_backend_arq.signatures import exclude_fastmcp_ctx_from_kwargs
 
 
 class CallbackSchema(CallbackFields):
-    """The contract callback field shape plus the render methods.
-
-    The contract carries only the field shape (``tool`` plus the condition/expr
-    mixin fields); rendering reaches the live resource manager, which is why the
-    methods live here rather than in the pure contract.
-    """
+    """The contract callback field shape plus render methods that reach the live
+    resource manager."""
 
     async def rendered_condition(self) -> str:
         return await tai42_app.storage.resource_manager.render_by_id_or_content(
@@ -67,8 +57,7 @@ async def callback_execution(result: Any, callback: CallbackSchema) -> Any:
             return None
 
     expr = await callback.rendered_expr()
-    # An absent/empty expr is not an error — ``get_compiled_jq("")`` would raise,
-    # so an empty expression yields an empty mapping for the follow-up tool.
+    # Empty expr is not an error: ``get_compiled_jq("")`` raises, so it yields {}.
     expr_output = get_compiled_jq(expr).input(result).first() if expr else {}
 
     if callback.tool:

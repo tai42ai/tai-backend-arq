@@ -32,12 +32,10 @@ from tai42_backend_arq.tasks import ARQ_SCHEDULE_OPTS, ARQ_TASK_OPTS, enqueue_ta
 
 @tai42_app.extensions.extension(kind=ExtensionKind.BACKEND)
 def sync_task(func: Callable[..., Any], name: str, description: str) -> Callable[..., Any]:
-    """Branch ``func`` into a ``<name>_sync_task`` variant that queues the tool
-    and waits (up to ``task_timeout``) for its result. A failed job re-raises
-    its revived stored failure — a ``TaskFailedError`` carrying the original
-    exception's type, ``repr``, and traceback text (aborted jobs included); a
-    successful result that could not be JSON-serialized returns as its stored
-    tagged description (type name and ``repr``) instead of the value."""
+    """Branch ``func`` into ``<name>_sync_task``: queue the tool and wait (up to
+    ``task_timeout``) for its result. A failed job re-raises as
+    ``TaskFailedError``; an unserializable success returns its tagged
+    description instead of the value."""
     new_name = f"{name}_sync_task"
     sig = add_signature_params(func, ARQ_TASK_OPTS, exclude_fastmcp_ctx=True)
 

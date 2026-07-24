@@ -1,11 +1,10 @@
 """Portable schedule records and schedule-shape helpers.
 
-:class:`ScheduleRecord` is the JSON-safe document ``backend_export_schedules``
-emits and ``backend_import_schedules`` consumes — only the durable definition of
-a schedule, never runtime state. The helpers convert between the canonical
-normalized schedule dict (see :func:`tai42_kit.utils.runtime.schedule_util.normalize_schedule`),
-the compact ``cron_or_interval`` value stored in the schedule hash (an interval
-in seconds or a 5-field crontab string), and the next-run timing derived from it.
+:class:`ScheduleRecord` is the JSON-safe document the export/import backup round
+trip emits and consumes — the durable definition only, never runtime state. The
+helpers convert between the normalized schedule dict, the compact
+``cron_or_interval`` form stored in the schedule hash (interval seconds or a
+5-field crontab string), and the next-run timing derived from it.
 """
 
 from __future__ import annotations
@@ -18,13 +17,9 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class ScheduleRecord(BaseModel):
-    """The durable definition of one schedule.
-
-    ``kwargs`` carries the queued execution's keyword arguments verbatim
-    (including the tool-name key). Runtime-only state (pending job id, last
-    scheduled timestamp, abort markers) is intentionally absent: it is derived
-    anew when the record is imported.
-    """
+    """The durable definition of one schedule; runtime state (job id, timestamps,
+    abort markers) is absent and re-derived on import. ``kwargs`` carries the
+    queued call's keyword arguments verbatim (including the tool-name key)."""
 
     name: str
     args: list[Any] = Field(default_factory=list)

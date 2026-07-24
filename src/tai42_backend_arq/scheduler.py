@@ -1,16 +1,12 @@
 """Redis-hash scheduler for recurring tool runs.
 
 Each schedule lives in one hash (``arq:schedule:{name}``) holding its target,
-args/kwargs, canonical schedule dict, compact ``cron_or_interval`` form, enabled
-flag, and runtime state (pending job id, last scheduled timestamp, abort
-marker). The self-rescheduling ``task_scheduler`` worker function enqueues the
-target when due and defers its own replacement; every state change of a
-schedule hash — a ``safe_schedule_transition``, an enabled-flag write, a
-delete — runs under the per-schedule ``schedule_lock``, so a delete can never
-interleave a transition's read-abort-write sequence and a flag write can never
-recreate a hash a concurrent delete just removed; the
-``recover_stalled_schedules`` startup watchdog restarts schedules whose pending
-job is lost or finished without rescheduling.
+args/kwargs, schedule dict, compact ``cron_or_interval`` form, enabled flag, and
+runtime state (pending job id, last scheduled timestamp, abort marker). The
+self-rescheduling ``task_scheduler`` enqueues the target when due and defers its
+own replacement. Every state change runs under the per-schedule
+``schedule_lock`` so deletes, transitions, and flag writes serialize.
+``recover_stalled_schedules`` restarts schedules whose pending job is lost.
 """
 
 from __future__ import annotations
@@ -33,14 +29,9 @@ logger = logging.getLogger(__name__)
 
 
 async def wait_job_result(job: Job, timeout: float | None = None) -> Any:
-    """``Job.result`` with a replayed stored abort surfaced as ``TaskFailedError``.
-
-    A failed job's stored outcome replays out of ``Job.result`` as its revived
-    exception. For an aborted job that is an ``asyncio.CancelledError``, which
-    must never escape a coroutine that was not itself cancelled — the caller's
-    runtime would read it as a cancellation of the caller. A replayed abort
-    re-raises here as ``TaskFailedError`` carrying the stored detail; a pending
-    cancellation of the CALLING task re-raises as-is."""
+    """``Job.result``, but a replayed stored abort surfaces as ``TaskFailedError``
+    rather than a raw ``CancelledError`` (which would read as a cancellation of
+    the caller). A genuine cancellation of the CALLING task re-raises as-is."""
     try:
         return await job.result(timeout=timeout)
     except asyncio.CancelledError as exc:
@@ -51,14 +42,8 @@ async def wait_job_result(job: Job, timeout: float | None = None) -> Any:
 
 
 async def abort_job(job: Job, timeout: float) -> bool:
-    """Call ``Job.abort`` without ever swallowing this task's own cancellation.
-
-    ``Job.abort`` treats every ``CancelledError`` raised while it polls the
-    result key as the job's replayed cancellation outcome and returns ``True``
-    — including a cancellation of the task CALLING it, which it catches and
-    swallows. A cancellation of the current task must propagate, never read as
-    a confirmed abort, so a pending one re-raises here.
-    """
+    """``Job.abort``, but a cancellation of the CALLING task re-raises instead of
+    being swallowed as the job's confirmed-abort verdict."""
     aborted = await job.abort(timeout=timeout)
     task = asyncio.current_task()
     if task is not None and task.cancelling():
@@ -69,22 +54,12 @@ async def abort_job(job: Job, timeout: float) -> bool:
 async def request_job_abort(job: Job) -> bool:
     """Request cancellation of ``job`` without blocking on fleet liveness.
 
-    Returns ``True`` when the job is guaranteed not to run: the cancellation is
-    confirmed, or the job already finished or no longer exists — there is
-    nothing pending to cancel, and calling ``Job.abort`` on a finished job
-    would replay its stored outcome (a stored abort replays as a confirmed
-    cancellation; a stored failure replays as its revived exception as if the
-    abort request had failed). A job that finishes on its own while the abort
-    request is in flight counts the same way: ``Job.abort`` polls the result
-    key while it waits, so such a job replays its stored outcome too — a
-    failed job's replayed exception, or a succeeded/vanished job's plain
-    ``False`` return — and both replay shapes are translated back into
-    ``True`` here via a status re-check, never
-    surfaced as an abort failure. Returns ``False`` when the request is
-    recorded but confirmation is still pending — the worker cancels the job at
-    pick-up (it runs with ``allow_abort_jobs``), so a pending confirmation is
-    the expected asynchronous outcome, logged and reported, not an error. Every
-    other failure (connection errors, undecodable job payloads) propagates.
+    Returns ``True`` when the job is guaranteed not to run (cancellation
+    confirmed, or the job already finished/vanished — a finished job's
+    ``Job.abort`` replays its stored outcome, translated back to ``True`` via a
+    status re-check). Returns ``False`` when the request is recorded but
+    confirmation is still pending (the worker cancels at pick-up). Every other
+    failure (connection errors, undecodable payloads) propagates.
     """
     status = await job.status()
     if status in (JobStatus.not_found, JobStatus.complete):
@@ -97,39 +72,26 @@ async def request_job_abort(job: Job) -> bool:
         return False
     except Exception:
         if await job.status() in (JobStatus.not_found, JobStatus.complete):
-            # The job finished (or vanished) between the pre-check and the
-            # abort's result poll, so the poll replayed its stored outcome —
-            # an exception derived from the job's stored failure, not an abort
-            # failure. Finished or gone is guaranteed not to run: the success
-            # contract.
+            # Finished/vanished during the abort poll: guaranteed not to run.
             return True
         raise
     if await job.status() in (JobStatus.not_found, JobStatus.complete):
-        # ``Job.abort`` returns False (rather than raising) when its result
-        # poll replayed a stored SUCCESS outcome, or when the job left the
-        # queue with no retained result. Finished or gone is guaranteed not
-        # to run: the success contract.
+        # abort returned False on a replayed success / no retained result:
+        # finished or gone, guaranteed not to run.
         return True
     logger.info("abort of job %s requested; cancellation will be confirmed by the worker", job.job_id)
     return False
 
 
-# The complete durable definition of a schedule as stored in its hash. A
-# transition may create a missing hash only when it writes all of these fields
-# in one go — anything less would leave a hash with no target or schedule that
-# can neither run nor be exported.
+# The full durable definition stored in a schedule hash. A transition may create
+# a missing hash only when it writes all of these fields at once.
 _SCHEDULE_DEFINITION_FIELDS = frozenset({"target", "args", "kwargs", "schedule", "cron_or_interval", "enabled"})
 
 
 def schedule_lock(redis: Any, schedule_name: str) -> Any:
-    """The per-schedule mutation lock.
-
-    Every state change of a schedule hash — a ``safe_schedule_transition``, an
-    enabled-flag write, a delete — acquires this lock, so an existence check
-    made under it stays true for the write that follows: a delete cannot
-    interleave a transition's read-abort-write sequence, and a flag write
-    cannot recreate a hash a concurrent delete just removed.
-    """
+    """The per-schedule mutation lock: every state change (transition, flag write,
+    delete) acquires it, so an existence check made under it stays true for the
+    write that follows."""
     return redis.lock(arq_settings().arq_schedule_lock_key(schedule_name), timeout=5, blocking_timeout=20)
 
 
@@ -143,17 +105,11 @@ async def safe_schedule_transition(
 ) -> Any:
     """Atomically replace a schedule's pending job and update its hash.
 
-    ``enforce_job_id`` makes the transition conditional: it proceeds only while
-    the hash still points at that job (the self-reschedule path); a mismatch
-    means an external update preempted this transition and it is skipped.
-    Without ``enforce_job_id`` (create/update/import paths) any pending job is
-    aborted before its replacement is enqueued.
-
-    A transition never resurrects a deleted schedule: when the hash is gone and
-    ``mapping_updates`` does not carry the full durable definition (only the
-    create/import paths do), a concurrent delete removed the schedule after the
-    caller last saw it — the transition is skipped and returns ``None``, since
-    writing anyway would recreate the schedule as a partial hash.
+    ``enforce_job_id`` makes the transition conditional (self-reschedule path):
+    it proceeds only while the hash still points at that job, else it is skipped.
+    Without it, any pending job is aborted before its replacement is enqueued. A
+    transition never resurrects a deleted schedule — a gone hash without a full
+    definition in ``mapping_updates`` is skipped and returns ``None``.
     """
     settings = arq_settings()
     key = settings.arq_schedule_key(schedule_name)
@@ -171,11 +127,8 @@ async def safe_schedule_transition(
             return None
 
         if not enforce_job_id and current_job_id:
-            # Request abort of the job being replaced before enqueueing its
-            # replacement. A failed abort request must surface: swallowing it
-            # would leave the old job live alongside the new one (a duplicate/
-            # dangling scheduled run), so it propagates and stops the transition
-            # before anything is enqueued or written.
+            # Abort the job being replaced first; a failed abort propagates
+            # rather than leave the old job live alongside its replacement.
             await request_job_abort(Job(current_job_id, redis=redis, _deserializer=job_deserializer))
 
         next_job_id = uuid.uuid4().hex
@@ -186,11 +139,9 @@ async def safe_schedule_transition(
         if mapping_updates:
             new_mapping.update(mapping_updates)
 
-        # The hash names the replacement (a pre-assigned id) BEFORE the job is
-        # enqueued under that id, so a worker can never pick the job up while
-        # the hash still points at its predecessor — ``task_scheduler`` refuses
-        # to run when it is not the recorded pending job. A crash between the
-        # two writes leaves the hash pointing at a not-found job, which the
+        # Name the replacement id in the hash BEFORE enqueueing the job under it,
+        # so a worker never picks it up while the hash still points at its
+        # predecessor. A crash between the two writes leaves a not-found job the
         # startup watchdog recovers.
         await redis.hset(key, mapping=new_mapping)
         next_job = await redis.enqueue_job("task_scheduler", schedule_name, _job_id=next_job_id, _defer_by=defer_by)
@@ -200,13 +151,9 @@ async def safe_schedule_transition(
 
 
 async def abort_schedule_task(key: str) -> None:
-    """Abort the pending job of the schedule hash at ``key``.
-
-    The hash's ``aborted`` marker is set to the pending job id first, so even a
-    job whose cancellation is never processed exits without effect when it
-    fires. Failures propagate — a swallowed abort would leave a live job behind
-    a schedule the caller believes is gone.
-    """
+    """Abort the pending job of the schedule hash at ``key``. The ``aborted``
+    marker is set to the job id first, so even a job whose cancellation is never
+    processed exits without effect. Failures propagate."""
     arq_redis: Any = await RedisPoolManager.get()
 
     if await arq_redis.exists(key):
@@ -218,14 +165,9 @@ async def abort_schedule_task(key: str) -> None:
 
 
 async def recover_stalled_schedules(ctx: dict[str, Any]) -> None:
-    """Startup watchdog: restart enabled schedules whose pending job is broken.
-
-    Scans every schedule hash; an enabled schedule whose recorded job id is
-    missing, not found, or complete (finished but failed to reschedule itself)
-    is restarted under a short recovery lock so concurrent worker startups
-    recover it once. A failure on one schedule is logged at ERROR and does not
-    stop recovery of the others.
-    """
+    """Startup watchdog: restart enabled schedules whose pending job is missing,
+    not found, or complete, each under a short recovery lock so concurrent
+    startups recover it once. A per-schedule failure is logged, not fatal."""
     redis = ctx["redis"]
     settings = arq_settings()
     logger.info("Watchdog: checking for stalled schedules...")
@@ -253,8 +195,7 @@ async def recover_stalled_schedules(ctx: dict[str, Any]) -> None:
                 job = Job(job_id, redis=redis, _deserializer=job_deserializer)
                 status = await job.status()
 
-                # not_found = the pending job is lost; complete = it ran but its
-                # self-reschedule never landed. Both leave the schedule dead.
+                # not_found: pending job lost. complete: ran but never rescheduled.
                 if status in (JobStatus.not_found, JobStatus.complete):
                     should_recover = True
 
@@ -267,30 +208,23 @@ async def recover_stalled_schedules(ctx: dict[str, Any]) -> None:
                     last_scheduled_ts=datetime.now(UTC).timestamp(),
                     enforce_job_id=None,
                 )
-                # None = the schedule was deleted between the scan and the
-                # transition; there is nothing left to restart.
+                # None: schedule deleted between scan and transition.
                 if restarted is not None:
                     recovered_count += 1
 
         except Exception:
-            # Loud, explicit per-schedule failure path: one broken schedule must
-            # not stop the watchdog from recovering the rest.
+            # One broken schedule must not stop recovery of the rest.
             logger.error("Watchdog error checking schedule %s", key, exc_info=True)
 
     logger.info("Watchdog: recovery complete. Restarted %d schedules.", recovered_count)
 
 
 async def task_scheduler(ctx: dict[str, Any], schedule_name: str) -> Any:
-    """Self-rescheduling worker function driving one schedule.
-
-    When due it enqueues the schedule's target (if enabled), waits for its
-    result, and — win or lose — defers its own replacement via
-    ``safe_schedule_transition`` conditioned on this job still being the
-    recorded pending job. It runs only while it IS that recorded pending job:
-    a stale invocation (an arq retry after this job's own transition already
-    ran, or a replaced job whose abort request was never processed) exits
-    without running the target, so one schedule never fires twice.
-    """
+    """Self-rescheduling worker function driving one schedule. When due it
+    enqueues the target (if enabled), waits for the result, then defers its own
+    replacement conditioned on this job still being the recorded pending job. A
+    stale invocation exits without running the target, so a schedule never fires
+    twice."""
     settings = arq_settings()
     key = settings.arq_schedule_key(schedule_name)
 
@@ -300,13 +234,11 @@ async def task_scheduler(ctx: dict[str, Any], schedule_name: str) -> Any:
 
     data = await ctx["redis"].hgetall(key)
 
-    # An abort marker naming this job means it was replaced/deleted: no run,
-    # no reschedule.
+    # Abort marker naming this job: it was replaced/deleted — no run.
     if not data or data.get(b"aborted", b"").decode("utf-8") == ctx["job_id"]:
         return None
 
-    # Only the recorded pending job drives the schedule; anything else is a
-    # stale duplicate whose slot another job already owns.
+    # Only the recorded pending job drives the schedule.
     if data.get(b"job_id", b"").decode("utf-8") != ctx["job_id"]:
         logger.info("Schedule '%s': job %s is no longer the pending job; skipping.", schedule_name, ctx["job_id"])
         return None
@@ -333,8 +265,7 @@ async def task_scheduler(ctx: dict[str, Any], schedule_name: str) -> Any:
     if isinstance(cron_or_interval, str):
         next_time = croniter(cron_or_interval, base_time).get_next(datetime)
         if next_time.timestamp() < now_ts:
-            # The computed slot is already in the past (missed runs): realign to
-            # the next slot after now instead of replaying the backlog.
+            # Computed slot is in the past (missed runs): realign to the next slot.
             next_time = croniter(cron_or_interval, now).get_next(datetime)
     else:
         # ``parse_cron_or_interval`` yields a number for anything non-crontab.
@@ -351,12 +282,8 @@ async def task_scheduler(ctx: dict[str, Any], schedule_name: str) -> Any:
     try:
         if enabled:
             job = await ctx["redis"].enqueue_job(target, *args, **kwargs)
-            # A failed target replays its revived stored failure here, which
-            # records this scheduler job as failed with that detail. An aborted
-            # target must do the same — its raw CancelledError replay would
-            # read to the worker as a cancellation of THIS job and trigger a
-            # pointless retry — so the replayed abort surfaces as
-            # ``TaskFailedError`` via ``wait_job_result``.
+            # wait_job_result surfaces an aborted target as TaskFailedError, not
+            # a raw CancelledError that would read as a cancellation of THIS job.
             return await wait_job_result(job)
     finally:
         await safe_schedule_transition(

@@ -1,11 +1,10 @@
 """The ``backend_*`` tool surface over the arq broker.
 
-Task/worker tools use arq's public ``Job`` status/result API and pool queries;
-schedule tools operate on this backend's own schedule hashes. Capabilities arq
-has no reliable data model for are registered but raise ``NotImplementedError``
-loudly. The four marker tools the host's schedule routes and backup round-trip
-consume are ``backend_list_schedules``, ``backend_delete_schedule``,
-``backend_export_schedules``, and ``backend_import_schedules``.
+Task/worker tools use arq's public ``Job`` API and pool queries; schedule tools
+operate on this backend's own schedule hashes. Capabilities arq has no reliable
+data model for raise ``NotImplementedError``. The host's schedule marker tools
+are ``backend_list_schedules`` / ``backend_delete_schedule`` /
+``backend_export_schedules`` / ``backend_import_schedules``.
 """
 
 from __future__ import annotations
@@ -43,8 +42,7 @@ logger = logging.getLogger(__name__)
 
 def _failure_detail(result: Any) -> str:
     """Human-readable detail of a stored failure result: the revived failure's
-    stored ``repr`` (a revived abort carries its original ``repr`` as the
-    ``CancelledError`` message), or the ``repr`` of whatever else was stored."""
+    ``repr``, or the ``repr`` of whatever else was stored."""
     if isinstance(result, TaskFailedError):
         return result.error_repr
     if isinstance(result, asyncio.CancelledError):
@@ -129,14 +127,10 @@ async def backend_cancel_task(task_id: str) -> str:
     except Exception:
         status = await job.status()
         if status == JobStatus.complete:
-            # The replayed stored outcome of a task that finished during the
-            # wait — not an abort failure. A stored failure landing after the
-            # abort request means the task is finished and will not run. A
-            # revived ``TaskFailedError`` outcome is the task's own failure
-            # (a worker abort stores a ``CancelledError``, which replays as a
-            # confirmed abort instead of raising here); a stored failure
-            # without revivable detail leaves abort and own-failure
-            # indistinguishable.
+            # Replayed stored outcome of a task that finished during the wait —
+            # not an abort failure. A revived TaskFailedError is the task's own
+            # failure; a failure with no revivable detail leaves abort and
+            # own-failure indistinguishable.
             info = await job.result_info()
             if info is not None and not info.success:
                 detail = _failure_detail(info.result)
@@ -148,21 +142,16 @@ async def backend_cancel_task(task_id: str) -> str:
                 )
             return f"Task {task_id} cannot be canceled (status: {status})"
         if status == JobStatus.not_found:
-            # The stored outcome vanished between the replay and the re-check;
-            # gone is equally guaranteed not to run.
+            # Vanished between replay and re-check; gone, guaranteed not to run.
             return f"Task {task_id} cannot be canceled (status: {status})"
         raise
     if aborted:
-        # ``Job.abort``'s confirmed-abort verdict: a replayed CancelledError
-        # outcome, revived by this backend's deserializer from the tagged
-        # description a stored abort serializes to.
+        # ``Job.abort``'s confirmed-abort verdict (a replayed CancelledError).
         return f"Task {task_id} aborted"
     status = await job.status()
     if status in (JobStatus.not_found, JobStatus.complete):
-        # ``Job.abort`` returns False (rather than raising) when its result
-        # poll replayed a stored SUCCESS outcome, or when the task left the
-        # queue with no retained result — the task finished during the wait,
-        # nothing is left to cancel.
+        # abort returned False on a replayed success / no retained result:
+        # the task finished during the wait, nothing left to cancel.
         return f"Task {task_id} cannot be canceled (status: {status})"
     return f"Task {task_id} abort requested but not confirmed"
 
@@ -177,8 +166,8 @@ async def backend_active_tasks() -> dict[str, Any]:
     not by worker.
     """
     arq_redis: Any = await RedisPoolManager.get()
-    # arq marks a running job with an in-progress key; the job's public status
-    # API is the authority (a lingering key after completion reads complete).
+    # arq marks a running job with an in-progress key; the job's status API is
+    # the authority (a lingering key after completion reads complete).
     pattern = f"{in_progress_key_prefix}*".encode()
     job_ids: list[str] = []
     async for key in arq_redis.scan_iter(match=pattern):
@@ -263,8 +252,7 @@ async def backend_list_schedules() -> list[dict[str, Any]]:
         name = raw.split(":")[-1]
         data = await arq_redis.hgetall(raw)
         if not data:
-            # A Redis hash that exists is never empty: the schedule was deleted
-            # between the scan and this read, so there is no row to report.
+            # Empty hash: the schedule was deleted between the scan and this read.
             continue
         next_run_raw = data.get(b"last_scheduled_ts")
         next_run_ts = float(next_run_raw) if next_run_raw else None
@@ -306,9 +294,7 @@ async def backend_export_schedules() -> list[dict[str, Any]]:
         name = raw.split(":")[-1]
         data = await arq_redis.hgetall(raw)
         if not data:
-            # A Redis hash that exists is never empty: the schedule was deleted
-            # between the scan and this read — nothing to export, not a corrupt
-            # record.
+            # Empty hash: the schedule was deleted between the scan and this read.
             continue
         raw_schedule = data.get(b"schedule")
         if raw_schedule is None:
@@ -402,7 +388,7 @@ async def backend_get_schedule(name: str) -> dict[str, Any]:
     key = settings.arq_schedule_key(name)
     data = await arq_redis.hgetall(key)
     if not data:
-        # A Redis hash that exists is never empty: no hash, no schedule.
+        # Empty hash means no schedule.
         return {"status": "not_found"}
     return {
         "enabled": data.get(b"enabled", b"true").decode() == "true",
@@ -483,7 +469,7 @@ async def backend_run_schedule_now(name: str) -> dict[str, Any]:
     key = settings.arq_schedule_key(name)
     data = await arq_redis.hgetall(key)
     if not data:
-        # A Redis hash that exists is never empty: no hash, no schedule.
+        # Empty hash means no schedule.
         return {"status": "not_found"}
 
     target = data.get(b"target", b"").decode()
@@ -571,9 +557,8 @@ async def backend_update_schedule(
             enforce_job_id=None,
         )
         if next_job is None:
-            # The transition found the hash gone: a concurrent delete removed
-            # the schedule after the exists-check above, and the update mapping
-            # (never a full definition) must not recreate it.
+            # Hash gone: a concurrent delete removed the schedule after the
+            # exists-check, and the update mapping must not recreate it.
             return {
                 "status": "not_found",
                 "name": name,

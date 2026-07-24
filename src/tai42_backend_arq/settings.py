@@ -1,27 +1,18 @@
 """Settings and job (de)serializers for the arq backend.
 
-``ArqSettings`` reads the ``ARQ_`` environment group. Besides the arq-specific
-connection knobs it carries the shared backend-settings surface (``manifest_key``
-/ ``task_timeout`` / ``tool_name_arg``): the host process exports the manifest
-under the env var named by ``manifest_key`` before it launches a worker runtime,
-and both sides must agree on these defaults
-without sharing code, so they are defined here with the platform-wide default
-values.
+``ArqSettings`` reads the ``ARQ_`` env group; the shared backend-settings surface
+(``manifest_key`` / ``task_timeout`` / ``tool_name_arg``) mirrors the host's
+defaults so both sides agree without sharing code.
 
-The job (de)serializers define this backend's JSON wire format. A RESULT
-payload (arq's ``serialize_result`` dict) may carry values JSON cannot encode —
-above all the exception instance arq stores as a failed job's result — so the
-serializer describes such a value in place as a tagged mapping (type name,
-``repr``, cancelled flag, traceback text), and the deserializer revives a
-failed result's tag into an exception: ``asyncio.CancelledError`` for a stored
-abort (the outcome arq's confirmed-abort verdict relies on),
-:class:`TaskFailedError` for everything else. Job payloads stay strict:
-enqueueing an unserializable argument raises instead of degrading it.
+The job (de)serializers define this backend's JSON wire format. A result payload
+may carry values JSON cannot encode (above all the exception arq stores as a
+failed job's result), so the serializer describes such a value in place as a
+tagged mapping and the deserializer revives a failed result's tag into an
+exception (``asyncio.CancelledError`` for a stored abort, :class:`TaskFailedError`
+otherwise). Job payloads stay strict: an unserializable argument raises.
 
-The key helpers cover only this backend's OWN Redis namespace (schedule hashes
-and schedule locks). Keys owned by arq itself (job / result / in-progress /
-queue) are never rebuilt here — arq's public constants and ``Job`` API are used
-at the call sites instead.
+The key helpers cover only this backend's own Redis namespace (schedule hashes
+and locks); arq's own keys use its public constants and ``Job`` API.
 """
 
 from __future__ import annotations
@@ -35,23 +26,20 @@ from pydantic_core import to_jsonable_python
 from pydantic_settings import SettingsConfigDict
 from tai42_kit.settings import TaiBaseSettings, settings_cache
 
-# Marker key of the tagged in-place description a JSON-unserializable value
-# inside a result payload serializes to.
+# Marker key of the tagged in-place description an unserializable value serializes to.
 UNSERIALIZABLE_KEY = "__tai_unserializable__"
 
 # The fields a tagged description always carries besides the marker key.
 _TAG_FIELDS = frozenset({"type", "repr", "cancelled", "traceback"})
 
-# The full key set of arq's ``serialize_result`` payload dict. Job payloads
-# (arq's ``serialize_job``) carry only a subset of these keys, so a payload
-# matching the full set identifies the result-store path.
+# The full key set of arq's ``serialize_result`` payload dict; a job payload
+# carries only a subset, so the full set identifies the result-store path.
 _RESULT_PAYLOAD_KEYS = frozenset({"t", "f", "a", "k", "et", "s", "r", "st", "ft", "q", "id"})
 
 
 class TaskFailedError(Exception):
-    """A task's stored failure, revived from the tagged description its
-    exception serialized to (the original exception object cannot cross the
-    JSON wire). Carries the original exception's type name, ``repr``, and
+    """A task's stored failure, revived from the tagged description its exception
+    serialized to. Carries the original exception's type name, ``repr``, and
     formatted traceback text when one was attached."""
 
     def __init__(self, error_type: str, error_repr: str, traceback_text: str | None) -> None:
@@ -96,12 +84,9 @@ def _revive_failure(tag: dict[str, Any]) -> BaseException:
 def job_serializer(payload: Any) -> bytes:
     """Serialize a job payload to JSON bytes (pydantic-aware, via orjson).
 
-    In a RESULT payload, a value JSON cannot encode (a failed job's stored
-    exception instance, an unserializable success value) serializes to its
-    tagged description instead of failing the whole payload into arq's
-    detail-free ``'unable to serialize result'`` placeholder. Job payloads
-    stay strict: an unserializable job argument raises here, surfacing as
-    arq's ``SerializationError`` at enqueue."""
+    In a result payload, a value JSON cannot encode serializes to its tagged
+    description instead of failing the whole payload. Job payloads stay strict:
+    an unserializable argument raises (arq's ``SerializationError`` at enqueue)."""
     if _is_result_payload(payload):
         return orjson.dumps(to_jsonable_python(payload, fallback=_describe_unserializable))
     return orjson.dumps(to_jsonable_python(payload))
@@ -110,14 +95,10 @@ def job_serializer(payload: Any) -> bytes:
 def job_deserializer(data: bytes) -> Any:
     """Deserialize JSON job bytes produced by :func:`job_serializer`.
 
-    A FAILED result payload whose stored result is a tagged description is
-    revived into an exception instance — ``asyncio.CancelledError`` for a
-    stored abort, :class:`TaskFailedError` for everything else — so arq's
-    ``Job.result`` / ``result_info`` surface the real stored failure. A
-    malformed tag raises (arq wraps it as ``DeserializationError``), never
-    degrades silently. A tagged description inside a SUCCESSFUL result is
-    left as the mapping itself: it IS the stored description of a value that
-    could not cross the wire."""
+    A failed result whose stored result is a tagged description is revived into
+    an exception (``asyncio.CancelledError`` for a stored abort,
+    :class:`TaskFailedError` otherwise); a malformed tag raises. A tagged
+    description inside a successful result is left as the mapping itself."""
     payload = orjson.loads(data)
     if _is_result_payload(payload) and not payload["s"] and _is_tagged(payload["r"]):
         payload["r"] = _revive_failure(payload["r"])
@@ -134,12 +115,10 @@ class ArqSettings(TaiBaseSettings):
     # How long a callback job waits for its predecessor to complete.
     callback_timeout: int = 5
 
-    # Shared backend-settings surface (host-agreed names and defaults). The host
-    # exports the resolved manifest under ``manifest_key`` for the worker runtime,
-    # whose children inherit it. ``task_timeout`` bounds synchronous waits on job
-    # results; ``tool_name_arg`` is the kwargs key carrying the target tool name
-    # into a queued execution. Defaults must match the host's backend settings so
-    # both sides agree without shared code.
+    # Shared backend-settings surface (host-agreed names and defaults):
+    # ``manifest_key`` names the env var the manifest is exported under,
+    # ``task_timeout`` bounds synchronous waits on job results, ``tool_name_arg``
+    # is the kwargs key carrying the target tool name into a queued execution.
     manifest_key: str = "MANIFEST_KEY"
     task_timeout: int = 300
     tool_name_arg: str = "backend_tool_name"

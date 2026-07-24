@@ -51,7 +51,6 @@ async def start_arq_worker(
         queue_name=queue_name,
         redis_settings=redis_settings,
         burst=burst,
-        # Passed through unchanged: arq itself treats 0 as "keep nothing".
         keep_result=keep_result,
         max_jobs=max_jobs,
         job_timeout=job_timeout,
@@ -59,18 +58,11 @@ async def start_arq_worker(
         max_tries=max_tries,
         health_check_interval=health_check_interval,
         on_startup=recover_stalled_schedules,
-        # The scheduler and the cancel/delete tools abort jobs through
-        # ``Job.abort``; without this the worker would never process an abort
-        # request and a rescored pending job would run instead of cancelling.
+        # Required for the scheduler and cancel/delete tools to abort jobs
+        # through ``Job.abort``; without it abort requests are never processed.
         allow_abort_jobs=True,
     )
 
-    # The worker runs on this process's event loop — the same loop the app's one
-    # long-lived worker-bus subscription reads on. Both are asyncio tasks sharing
-    # the loop cooperatively, so a fleet op broadcast mid-job is read and applied
-    # as soon as the running jobs yield; the worker itself starts no bus
-    # consumer. On exit (burst completion or cancellation) the shared Redis pool
-    # and the worker are torn down.
     try:
         await worker.async_run()
     except asyncio.CancelledError:

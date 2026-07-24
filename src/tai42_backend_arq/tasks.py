@@ -1,10 +1,9 @@
 """Worker functions and the enqueue helper.
 
-``tool_execution`` runs one tool by name through ``tai42_app.tools.run_tool`` and,
-when a callback schema rode along, chains a ``callback_job`` that waits for this
-job's result and executes the callback over it. ``enqueue_task`` maps the
-backend task options (``eta`` / ``countdown`` / ``expires`` /
-``callback_kwargs``) onto arq's enqueue API.
+``tool_execution`` runs one tool by name and, when a callback schema rode along,
+chains a ``callback_job`` over this job's result. ``enqueue_task`` maps the
+backend task options (``eta`` / ``countdown`` / ``expires`` / ``callback_kwargs``)
+onto arq's enqueue API.
 """
 
 from __future__ import annotations
@@ -23,8 +22,6 @@ from tai42_backend_arq.scheduler import wait_job_result
 from tai42_backend_arq.settings import arq_settings, job_deserializer
 
 # Task options every backend extension appends to its branch tool's signature.
-# ``enqueue_task`` maps them onto arq's defer options; ``callback_kwargs`` stays
-# a job kwarg consumed by ``tool_execution``.
 ARQ_TASK_OPTS: dict[str, Any] = {
     "countdown": int | None,
     "expires": str | float | None,  # Seconds the queued job stays runnable.
@@ -44,8 +41,8 @@ async def callback_job(
     callback: CallbackSchema | dict[str, Any],
 ) -> Any:
     """Wait for ``previous_job_id`` to complete, then run ``callback`` over its
-    result. Reports (as its own job result) an error/not-finished status when
-    the predecessor is missing, times out, or fails."""
+    result. Reports an error/not-finished status when the predecessor is
+    missing, times out, or fails."""
     # The schema crosses the queue as JSON, so it arrives as a plain mapping.
     if not isinstance(callback, CallbackSchema):
         callback = CallbackSchema.model_validate(callback)
@@ -76,10 +73,8 @@ async def callback_job(
             return {"status": "error", "job_id": previous_job_id, "error": repr(e)}
 
     try:
-        # ``wait_job_result`` surfaces an aborted predecessor as
-        # ``TaskFailedError`` (never a raw CancelledError that would read as a
-        # cancellation of this callback job), so every stored failure lands in
-        # the failure report below with its detail.
+        # wait_job_result surfaces an aborted predecessor as TaskFailedError,
+        # not a raw CancelledError that would read as this job's cancellation.
         result = await wait_job_result(job)
         return await callback_execution(result, callback)
     except Exception as e:
@@ -87,10 +82,9 @@ async def callback_job(
 
 
 async def tool_execution(ctx: dict[str, Any], *args: Any, **kwargs: Any) -> Any:
-    """Run the tool named by the ``tool_name_arg`` kwarg with the remaining
-    kwargs; when ``callback_kwargs`` rode along, chain a callback job keyed to
-    this job's id — even when the tool itself raised, so the callback can react
-    to the failure."""
+    """Run the tool named by the ``tool_name_arg`` kwarg; when ``callback_kwargs``
+    rode along, chain a callback job keyed to this job's id — even when the tool
+    raised, so the callback can react to the failure."""
     callback = kwargs.pop("callback_kwargs", None)
 
     try:
@@ -104,11 +98,9 @@ async def tool_execution(ctx: dict[str, Any], *args: Any, **kwargs: Any) -> Any:
 async def enqueue_task(arq_redis: ArqRedis, *args: Any, **kwargs: Any) -> Any:
     """Enqueue one ``tool_execution`` job, honoring the backend task options.
 
-    ``eta`` (ISO datetime) defers the job until that moment (``_defer_until``),
-    ``countdown`` (seconds) defers it by that long (``_defer_by``), and
-    ``expires`` (seconds) bounds how long the queued job stays runnable
-    (``_expires``). ``callback_kwargs`` stays a job kwarg consumed by
-    ``tool_execution``. ``None`` options are dropped.
+    ``eta`` (ISO datetime) defers until that moment, ``countdown`` (seconds)
+    defers by that long, ``expires`` (seconds) bounds how long the job stays
+    runnable, ``callback_kwargs`` stays a job kwarg. ``None`` options are dropped.
     """
     task_kwargs = {k: kwargs.pop(k) for k in ARQ_TASK_OPTS if k in kwargs}
     opts = {k: v for k, v in task_kwargs.items() if v is not None}
