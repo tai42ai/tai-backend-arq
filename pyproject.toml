@@ -30,7 +30,7 @@ dependencies = [
     # helpers; the jq extra backs the callback condition/expression evaluation.
     "tai42-kit[jq]>=0.1,<0.2",
     # The broker SDK: worker runtime, ArqRedis pool, Job status/result API.
-    "arq~=0.27.0",
+    "arq~=0.28.0",
     # Crontab iteration for the Redis-hash scheduler.
     "croniter~=6.2.2",
     # Job/schedule payload (de)serialization.
