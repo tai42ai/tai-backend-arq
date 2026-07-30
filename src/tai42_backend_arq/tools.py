@@ -50,7 +50,7 @@ def _failure_detail(result: Any) -> str:
     return repr(result)
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_task_status(task_id: str) -> str:
     """
     Return the current status of a given task ID.
@@ -61,7 +61,7 @@ async def backend_task_status(task_id: str) -> str:
     return status.value if status else "unknown"
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_task_result(task_id: str, timeout: float | None = None) -> Any:
     """
     Return the result of a completed task by ID.
@@ -96,7 +96,7 @@ async def backend_task_result(task_id: str, timeout: float | None = None) -> Any
         return f"No result found for task {task_id}"
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_cancel_task(task_id: str) -> str:
     """
     Cancel (abort) a running or queued task.
@@ -156,7 +156,7 @@ async def backend_cancel_task(task_id: str) -> str:
     return f"Task {task_id} abort requested but not confirmed"
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_active_tasks() -> dict[str, Any]:
     """
     Get all currently executing tasks (in-progress jobs).
@@ -181,7 +181,7 @@ async def backend_active_tasks() -> dict[str, Any]:
     return tasks
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_reserved_tasks() -> list[str]:
     """
     Get all reserved/queued tasks (due to run, not yet picked up).
@@ -198,7 +198,7 @@ async def backend_reserved_tasks() -> list[str]:
     ]
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_scheduled_tasks() -> dict[str, float]:
     """
     Get all scheduled/deferred tasks (future-dated queue entries).
@@ -215,7 +215,7 @@ async def backend_scheduled_tasks() -> dict[str, float]:
     }
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_list_failed_tasks() -> list[dict[str, Any]]:
     """
     Get the failed (including aborted) tasks whose results are still retained,
@@ -232,7 +232,7 @@ async def backend_list_failed_tasks() -> list[dict[str, Any]]:
     ]
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_list_schedules() -> list[dict[str, Any]]:
     """
     List all custom schedules.
@@ -271,7 +271,7 @@ async def backend_list_schedules() -> list[dict[str, Any]]:
     return schedules
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_export_schedules() -> list[dict[str, Any]]:
     """
     Export every custom schedule as a list of portable, JSON-serializable records.
@@ -310,7 +310,7 @@ async def backend_export_schedules() -> list[dict[str, Any]]:
     return [record.model_dump() for record in records]
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_import_schedules(schedules: list[dict[str, Any]]) -> dict[str, Any]:
     """
     Import schedules previously produced by ``backend_export_schedules``.
@@ -378,7 +378,7 @@ async def backend_import_schedules(schedules: list[dict[str, Any]]) -> dict[str,
     return {"created": created, "updated": updated, "skipped": skipped, "errors": errors}
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_get_schedule(name: str) -> dict[str, Any]:
     """
     Get details of a custom schedule.
@@ -399,7 +399,7 @@ async def backend_get_schedule(name: str) -> dict[str, Any]:
     }
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_delete_schedule(name: str) -> dict[str, Any]:
     """
     Delete a custom schedule.
@@ -421,7 +421,7 @@ async def backend_delete_schedule(name: str) -> dict[str, Any]:
     return {"status": "deleted", "name": name}
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_enable_schedule(name: str) -> dict[str, Any]:
     """
     Enable a custom schedule.
@@ -440,7 +440,7 @@ async def backend_enable_schedule(name: str) -> dict[str, Any]:
     return {"status": "enabled"}
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_disable_schedule(name: str) -> dict[str, Any]:
     """
     Disable a custom schedule.
@@ -459,7 +459,7 @@ async def backend_disable_schedule(name: str) -> dict[str, Any]:
     return {"status": "disabled"}
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_run_schedule_now(name: str) -> dict[str, Any]:
     """
     Force a schedule to run ASAP.
@@ -481,7 +481,7 @@ async def backend_run_schedule_now(name: str) -> dict[str, Any]:
     return {"status": "queued"}
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_schedule_exists(name: str) -> bool:
     """
     Return True if a custom schedule entry exists.
@@ -492,7 +492,7 @@ async def backend_schedule_exists(name: str) -> bool:
     return bool(await arq_redis.exists(key))
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_update_schedule(
     name: str,
     new_schedule: int | float | str | dict[str, Any] | None = None,
@@ -589,7 +589,7 @@ async def backend_update_schedule(
     }
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_registered_tasks() -> list[str]:
     """
     List the task functions registered with the worker.
@@ -597,7 +597,7 @@ async def backend_registered_tasks() -> list[str]:
     raise NotImplementedError("backend 'arq' does not support backend_registered_tasks")
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_worker_stats() -> dict[str, Any]:
     """
     Return runtime statistics for the worker.
@@ -605,7 +605,7 @@ async def backend_worker_stats() -> dict[str, Any]:
     raise NotImplementedError("backend 'arq' does not support backend_worker_stats")
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_worker_queues() -> list[str]:
     """
     List the queues the worker consumes from.
@@ -613,7 +613,7 @@ async def backend_worker_queues() -> list[str]:
     raise NotImplementedError("backend 'arq' does not support backend_worker_queues")
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_ping_worker() -> dict[str, Any]:
     """
     Ping the worker and return its liveness response.
@@ -621,7 +621,7 @@ async def backend_ping_worker() -> dict[str, Any]:
     raise NotImplementedError("backend 'arq' does not support backend_ping_worker")
 
 
-@tai42_app.tools.tool
+@tai42_app.tools.tool(tags={"backend"})
 async def backend_list_active_workers() -> list[str]:
     """
     List the workers currently active.

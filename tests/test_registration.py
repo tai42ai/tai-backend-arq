@@ -56,6 +56,11 @@ def test_canonical_tools_registered(stub_app) -> None:
     )
 
 
+def test_canonical_tools_tagged_backend(stub_app) -> None:
+    for name in CANONICAL_TOOLS:
+        assert stub_app.tools.tags[name] == {"backend"}
+
+
 @pytest.mark.parametrize("name", sorted(NOT_IMPLEMENTED_TOOLS))
 async def test_not_implemented_stubs_raise(name: str) -> None:
     func = getattr(tools, name)

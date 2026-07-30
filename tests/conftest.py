@@ -27,11 +27,15 @@ from tai42_contract.extensions import ExtensionKind
 class StubTools:
     def __init__(self) -> None:
         self.registered: dict[str, Callable[..., Any]] = {}
+        self.tags: dict[str, set[str]] = {}
         self.run_tool_mock = AsyncMock(return_value=None)
 
     def tool(self, *args: Any, force: bool = False, **kwargs: Any) -> Any:
+        tags = kwargs.get("tags", set())
+
         def register(func: Callable[..., Any]) -> Callable[..., Any]:
             self.registered[func.__name__] = func
+            self.tags[func.__name__] = tags
             return func
 
         if args and callable(args[0]):
